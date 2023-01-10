@@ -2,11 +2,11 @@ import { Card } from '@sanity/ui'
 import { height, OpenGraphImage, width } from 'components/OpenGraphImage'
 import { createIntlSegmenterPolyfill } from 'intl-segmenter-polyfill'
 import type { Settings } from 'lib/sanity.queries'
-import React, { cache, use, useMemo } from 'react'
+import React, { cache, use, useEffect, useMemo, useState } from 'react'
 import _satori, { type SatoriOptions } from 'satori'
 import styled from 'styled-components'
 
-const init = cache(async function init(): Promise<SatoriOptions['fonts']> {
+async function init(): Promise<SatoriOptions['fonts']> {
   if (!globalThis?.Intl?.Segmenter) {
     console.debug('Polyfilling Intl.Segmenter')
     //@ts-expect-error
@@ -22,7 +22,7 @@ const init = cache(async function init(): Promise<SatoriOptions['fonts']> {
   ).then((res) => res.arrayBuffer())
 
   return [{ name: 'Inter', data: fontData, style: 'normal', weight: 700 }]
-})
+}
 
 const OpenGraphSvg = styled(Card).attrs({
   radius: 3,
@@ -43,20 +43,25 @@ const OpenGraphSvg = styled(Card).attrs({
   }
 `
 
-const satori = cache(_satori)
-
 export default function OpenGraphPreview(props: Settings['ogImage']) {
-  const fonts = use(init())
+  const [html, setHtml] = useState('')
 
-  const __html = use(
-    satori(
-      useMemo(
-        () => <OpenGraphImage title={props.title || ''} />,
-        [props.title]
-      ),
-      useMemo(() => ({ width, height, fonts }), [fonts])
-    )
-  )
+  useEffect(() => {
+    async function getHtml() {
+      const fonts = await init()
+      const html = await _satori(<OpenGraphImage title={props.title || ''} />, {
+        width,
+        height,
+        fonts,
+      })
 
-  return <OpenGraphSvg dangerouslySetInnerHTML={{ __html }} />
+      console.log('html', html)
+
+      setHtml(html)
+    }
+
+    getHtml()
+  }, [html, props.title])
+
+  return <OpenGraphSvg dangerouslySetInnerHTML={{ __html: html }} />
 }
